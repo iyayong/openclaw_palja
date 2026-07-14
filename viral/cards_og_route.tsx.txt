@@ -1,0 +1,117 @@
+import { ImageResponse } from 'next/og'
+import { NextRequest } from 'next/server'
+
+export const runtime = 'edge'
+
+const BG = '#12121e'
+const ACCENT = '#ff5032'
+const ACCENT2 = '#ffc832'
+const WHITE = '#ffffff'
+const GRAY = '#b4b4be'
+const DARK = '#1e1e32'
+
+function Card({ children, num }: { children: React.ReactNode; num?: number }) {
+  return (
+    <div style={{
+      width: 1080, height: 1080, background: BG,
+      display: 'flex', flexDirection: 'column',
+      alignItems: 'center', justifyContent: 'center',
+      position: 'relative', overflow: 'hidden',
+    }}>
+      {children}
+      {num && (
+        <div style={{ position: 'absolute', bottom: 30, right: 40, color: GRAY, fontSize: 24,
+          background: 'rgba(255,255,255,0.08)', padding: '8px 20px', borderRadius: 20 }}>
+          {num} / 5
+        </div>
+      )}
+    </div>
+  )
+}
+
+export async function GET(req: NextRequest) {
+  const { searchParams } = new URL(req.url)
+  const card = parseInt(searchParams.get('card') || '1')
+  const date = searchParams.get('date') || '7월 13일'
+
+  const render = () => {
+    switch(card) {
+      case 1: return (
+        <Card>
+          <div style={{ fontSize: 80 }}>🔥</div>
+          <div style={{ fontSize: 100, color: WHITE, fontWeight: 700, marginTop: 40 }}>{date}</div>
+          <div style={{ fontSize: 72, color: ACCENT2, fontWeight: 700 }}>오늘의 주식운세</div>
+          <div style={{ width: 300, height: 4, background: ACCENT, marginTop: 30 }} />
+          <div style={{ fontSize: 40, color: GRAY, marginTop: 40 }}>🔥 불의 날 — 화(火) 86%</div>
+        </Card>
+      )
+      case 2: return (
+        <Card num={2}>
+          <div style={{ fontSize: 48, color: ACCENT2, fontWeight: 700 }}>🏆 오늘의 최고 운세 TOP3</div>
+          <div style={{ width: 200, height: 3, background: ACCENT2, margin: '20px 0 40px' }} />
+          {[['🥇', '돼지띠', '90점', ACCENT2], ['🥈', '용띠', '88점', ACCENT], ['🥉', '소띠', '82점', '#ff9632']].map(([emoji, name, score, color], i) => (
+            <div key={i} style={{ width: 800, height: 120, background: DARK, borderRadius: 24, display: 'flex', alignItems: 'center', padding: '0 40px', marginBottom: 20 }}>
+              <div style={{ fontSize: 48, width: 80 }}>{emoji}</div>
+              <div style={{ fontSize: 48, fontWeight: 700, color: WHITE, flex: 1 }}>{name}</div>
+              <div style={{ fontSize: 48, fontWeight: 700, color, background: 'rgba(255,255,255,0.08)', padding: '10px 30px', borderRadius: 30 }}>{score}</div>
+            </div>
+          ))}
+        </Card>
+      )
+      case 3: return (
+        <Card num={3}>
+          <div style={{ fontSize: 48, color: '#ffb450', fontWeight: 700 }}>⚠️ 오늘은 이것만 조심하세요</div>
+          <div style={{ width: 200, height: 3, background: '#ffb450', margin: '20px 0 40px' }} />
+          {[['🐯 호랑이띠', '45점', '급한 결정은 잠시 미루세요'],
+            ['🐶 개띠', '50점', '흐름이 정체되어도 인내하세요'],
+            ['🐴 말띠', '55점', '서두르면 실수! 여유를 가지세요']].map(([name, score, tip], i) => (
+            <div key={i} style={{ width: 800, background: '#281919', borderRadius: 24, padding: '24px 40px', marginBottom: 20 }}>
+              <div style={{ display: 'flex', alignItems: 'center', marginBottom: 8, gap: 20 }}>
+                <div style={{ fontSize: 40, fontWeight: 700, color: WHITE, flex: 1 }}>{name}</div>
+                <div style={{ fontSize: 48, fontWeight: 700, color: ACCENT, background: 'rgba(255,80,50,0.2)', padding: '8px 24px', borderRadius: 30 }}>{score}</div>
+              </div>
+              <div style={{ fontSize: 28, color: GRAY }}>{tip}</div>
+            </div>
+          ))}
+        </Card>
+      )
+      case 4: return (
+        <Card num={4}>
+          <div style={{ fontSize: 48, color: WHITE, fontWeight: 700 }}>🌡️ 오행 시장 온도계</div>
+          <div style={{ width: 200, height: 3, background: GRAY, margin: '20px 0 40px' }} />
+          <div style={{ width: 800, marginBottom: 30 }}>
+            <div style={{ height: 100, background: ACCENT, borderRadius: 16, display: 'flex', alignItems: 'center', padding: '0 30px', width: '86%', minWidth: 250, justifyContent: 'space-between' }}>
+              <div style={{ fontSize: 36, fontWeight: 700, color: WHITE }}>🔥 화(火) 불</div>
+              <div style={{ fontSize: 72, fontWeight: 700, color: WHITE }}>86%</div>
+            </div>
+            <div style={{ fontSize: 22, color: GRAY, marginTop: 8 }}>SK하이닉스 -15.37% | 삼성전자 -10.70%</div>
+          </div>
+          <div style={{ width: 800, marginBottom: 20 }}>
+            <div style={{ height: 70, background: '#c8aa32', borderRadius: 16, display: 'flex', alignItems: 'center', padding: '0 30px', width: '40%', minWidth: 200, justifyContent: 'space-between' }}>
+              <div style={{ fontSize: 36, fontWeight: 700, color: WHITE }}>💰 금(金) 쇠</div>
+              <div style={{ fontSize: 48, fontWeight: 700, color: WHITE }}>9%</div>
+            </div>
+          </div>
+          <div style={{ width: 800, marginBottom: 20 }}>
+            <div style={{ height: 70, background: '#966e46', borderRadius: 16, display: 'flex', alignItems: 'center', padding: '0 30px', width: '30%', minWidth: 200, justifyContent: 'space-between' }}>
+              <div style={{ fontSize: 36, fontWeight: 700, color: WHITE }}>🌍 토(土) 흙</div>
+              <div style={{ fontSize: 48, fontWeight: 700, color: WHITE }}>2%</div>
+            </div>
+          </div>
+          <div style={{ fontSize: 32, color: ACCENT2, marginTop: 40 }}>오늘은 불(火)의 기운이 압도적인 날!</div>
+          <div style={{ fontSize: 24, color: GRAY, marginTop: 10 }}>코스피 -8.95% | 서킷브레이커 발동</div>
+        </Card>
+      )
+      case 5: return (
+        <Card>
+          <div style={{ fontSize: 72, color: WHITE, fontWeight: 700, textAlign: 'center' }}>내 오늘의 운세는?</div>
+          <div style={{ background: ACCENT, padding: '20px 80px', borderRadius: 50, fontSize: 48, fontWeight: 700, color: WHITE, marginTop: 30 }}>palja.net</div>
+          <div style={{ fontSize: 32, color: GRAY, marginTop: 30 }}>AI가 분석한 내 사주와 주식의 궁합</div>
+        </Card>
+      )
+      default: return <Card><div style={{ fontSize: 48, color: WHITE }}>Card #{card}</div></Card>
+    }
+  }
+
+  return new ImageResponse(render(), { width: 1080, height: 1080 })
+}
