@@ -329,7 +329,7 @@ const tasks = {
   // 8. 장마감
   close_th: async () => {
     const brief = await fetchJSON(`${SUPABASE_URL}/rest/v1/market_briefs?select=*&order=brief_date.desc&limit=1`);
-    const header = `🌙 ${kstDate()} 장 마감 정리\n`;
+    const header = `🌙 ${kstDate()} 시장 브리핑\n`;
     const footer = `\n👉 https://palja.net`;
     const raw = brief[0]?.content || '';
     const maxLen = 500 - header.length - footer.length;
@@ -339,7 +339,7 @@ const tasks = {
   },
   close_fb: async () => {
     const brief = await fetchJSON(`${SUPABASE_URL}/rest/v1/market_briefs?select=*&order=brief_date.desc&limit=1`);
-    return postFB(`🌙 ${kstDate()} 장 마감 정리\n\n${brief[0]?.content || ''}\n\n👉 AI 사주 × 주식 분석: palja.net`, null);
+    return postFB(`🌙 ${kstDate()} 시장 브리핑\n\n${brief[0]?.content || ''}\n\n👉 AI 사주 × 주식 분석: palja.net`, null);
   },
 };
 
