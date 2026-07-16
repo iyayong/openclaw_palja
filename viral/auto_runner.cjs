@@ -158,9 +158,20 @@ async function genTempImage() {
   
   // Git push
   const { execSync } = require('child_process');
-  execSync('cd ~/Repo/openclaw_palja && git add -f viral/output/ig_images/temp_report.png && git commit -m "auto: temp report ' + kstDate() + '" && git push origin main 2>&1', { stdio: 'pipe' });
+  try {
+    execSync('cd ~/Repo/openclaw_palja && git add -f viral/output/ig_images/temp_report.png && git commit -m "auto: temp report ' + kstDate() + '" && git push origin main 2>&1', { stdio: 'pipe' });
+  } catch(e) { /* commit fail = expected on retry */ }
   
   return `${RAW_BASE}/ig_images/temp_report.png`;
+}
+
+function gitCleanup(files) {
+  const { execSync } = require('child_process');
+  try {
+    const fileList = Array.isArray(files) ? files.join(' ') : files;
+    execSync(`cd ${os.homedir()}/Repo/openclaw_palja && git rm --cached --ignore-unmatch ${fileList} 2>&1 && git commit -m "cleanup: remove posted images" && git push origin main 2>&1`, { stdio: 'pipe' });
+    console.log('🧹 Cleanup pushed:', fileList);
+  } catch(e) { /* nothing to clean */ }
 }
 
 // ===== POSTERS =====
@@ -226,7 +237,8 @@ const tasks = {
   // 2. 오행 온도계
   temp_ig: async () => {
     const imgUrl = await genTempImage();
-    return postIG(`🌡️ ${kstDate()} 오행 시장 온도계 리포트\n\n오늘의 시장 에너지를 오행(목화토금수)으로 분석했습니다.\n현재 가장 강한 기운을 가진 종목군을 이미지로 확인하세요.\nAI 사주 × 주식 분석 👉 palja.net\n\n#오행 #시장온도계 #오늘의주식 #팔자 #AI분석 #코스피`, imgUrl);
+    const r = await postIG(`🌡️ ${kstDate()} 오행 시장 온도계 리포트\n\n오늘의 시장 에너지를 오행(목화토금수)으로 분석했습니다.\n현재 가장 강한 기운을 가진 종목군을 이미지로 확인하세요.\nAI 사주 × 주식 분석 👉 palja.net\n\n#오행 #시장온도계 #오늘의주식 #팔자 #AI분석 #코스피`, imgUrl);
+    return r;
   },
   temp_th: async () => {
     const stocks = await fetchJSON(`${SUPABASE_URL}/rest/v1/krx_daily_market_snapshots?select=element_tags,trade_value&order=trade_value.desc&limit=100`);
@@ -238,7 +250,10 @@ const tasks = {
   },
   temp_fb: async () => {
     const imgUrl = await genTempImage();
-    return postFB(`🌡️ ${kstDate()} 오행 시장 온도계 리포트\n\nPlaywright 렌더링 이미지로 확인하세요!\nAI 사주 × 주식 분석: palja.net`, imgUrl);
+    const r = await postFB(`🌡️ ${kstDate()} 오행 시장 온도계 리포트\n\n오늘의 시장 에너지를 오행으로 분석했습니다.\nAI 사주 × 주식 분석: palja.net`, imgUrl);
+    // temp_fb is last task using the image — clean up git
+    gitCleanup('viral/output/ig_images/temp_report.png');
+    return r;
   },
 
   // 3. 블로그 초안 메일
@@ -265,10 +280,14 @@ const tasks = {
   // 5. IG 카드뉴스
   cardnews: async () => {
     const raw = require('child_process').execSync;
-    raw('cd ~/Repo/openclaw_palja && git pull origin main 2>/dev/null; NODE_PATH=/home/paljastock/.openclaw/tools/node-v22.22.2/lib/node_modules node viral/render_cards_20260715.cjs 2>&1', { stdio: 'pipe' });
-    raw('cd ~/Repo/openclaw_palja && git add -f viral/output/cards_html/card*.png && git commit -m "auto: cardnews ' + kstDate() + '" && git push origin main 2>&1', { stdio: 'pipe' });
+    try {
+      raw('cd ~/Repo/openclaw_palja && git pull origin main 2>/dev/null; NODE_PATH=/home/paljastock/.openclaw/tools/node-v22.22.2/lib/node_modules node viral/render_cards_today.cjs 2>&1', { stdio: 'pipe' });
+    } catch(e) {}
+    try {
+      raw('cd ~/Repo/openclaw_palja && git add -f viral/output/cards_html/*0716.png viral/output/cards_html/card*.png 2>/dev/null && git commit -m "auto: cardnews ' + kstDate() + '" && git push origin main 2>&1', { stdio: 'pipe' });
+    } catch(e) {}
     
-    const images = ['card01_cover','card02_top3','card03_caution','card04_temp','card05_cta'].map(n => `${RAW_BASE}/cards_html/${n}.png`);
+    const images = ['card01_cover_0716','card02_top3_0716','card03_caution_0716','card04_temp_0716','card05_cta_0716'].map(n => `${RAW_BASE}/cards_html/${n}.png`);
     const children = [];
     for (const img of images.slice(0,5)) {
       const c = await api('POST', `https://graph.facebook.com/v22.0/${IG_ID}/media`, FB_TOKEN, { image_url: img, is_carousel_item: true });
@@ -280,7 +299,10 @@ const tasks = {
         media_type: 'CAROUSEL', children, caption: `🔥 ${kstDate()} 오늘의 주식운세 카드뉴스\n\n👉 palja.net\n\n#주식운세 #띠별운세 #카드뉴스 #팔자 #AI분석 #오행`
       });
       if (car?.id) { await sleep(2000);
-        return api('POST', `https://graph.facebook.com/v22.0/${IG_ID}/media_publish`, FB_TOKEN, { creation_id: car.id }); }
+        const pub = await api('POST', `https://graph.facebook.com/v22.0/${IG_ID}/media_publish`, FB_TOKEN, { creation_id: car.id });
+        gitCleanup('viral/output/cards_html/*0716.png viral/output/cards_html/card*.png');
+        return pub;
+      }
     }
     return { error: 'not enough cards' };
   },
