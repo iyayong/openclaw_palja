@@ -352,10 +352,23 @@ const tasks = {
   copy_9: () => postThreads(`🔮 띠별 재물운 TOP3: 용·호랑이·말! 내 운세는? 👉 https://palja.net`),
   copy_10: () => postThreads(`📊 폭락 후 반등! 시장 흐름 AI 분석 👉 https://palja.net`),
 
-  // 5. IG 카드뉴스
+  // 5. IG 카드뉴스 (v2 — dynamic content)
   cardnews: async () => {
     const raw = require('child_process').execSync;
     const dateCode = kstDate().replace(/-/g, '').slice(2);
+    
+    // Fetch market data for dynamic caption
+    let themeEmoji = '🔥';
+    try {
+      const naver = await fetchNaverKospi();
+      const pct = parseFloat(naver.changePct);
+      if (pct <= -3.0) themeEmoji = '🌊';
+      else if (pct <= -1.0) themeEmoji = '📉';
+      else if (pct <= 1.0) themeEmoji = '⚖️';
+      else if (pct <= 3.0) themeEmoji = '📈';
+      else themeEmoji = '🚀';
+    } catch(_) {}
+    
     try {
       raw('cd ~/Repo/openclaw_palja && git pull origin main 2>/dev/null; NODE_PATH=/home/paljastock/.openclaw/tools/node-v22.22.2/lib/node_modules node viral/render_cards_today.cjs 2>&1', { stdio: 'pipe' });
     } catch(e) {}
@@ -372,7 +385,7 @@ const tasks = {
     }
     if (children.length >= 2) {
       const car = await api('POST', `https://graph.facebook.com/v22.0/${IG_ID}/media`, FB_TOKEN, {
-        media_type: 'CAROUSEL', children, caption: `🔥 ${kstDate()} 오늘의 주식운세 카드뉴스\n\n👉 palja.net\n\n#주식운세 #띠별운세 #카드뉴스 #팔자 #AI분석 #오행`
+        media_type: 'CAROUSEL', children, caption: `${themeEmoji} ${kstDate()} 오늘의 주식운세 카드뉴스\n\n실시간 시장 데이터 기반 AI 분석\n👉 palja.net\n\n#주식운세 #띠별운세 #카드뉴스 #팔자 #AI분석 #오행 #오늘의주식`
       });
       if (car?.id) { await sleep(2000);
         const pub = await api('POST', `https://graph.facebook.com/v22.0/${IG_ID}/media_publish`, FB_TOKEN, { creation_id: car.id });
