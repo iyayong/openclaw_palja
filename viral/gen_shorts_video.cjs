@@ -203,6 +203,11 @@ async function genShorts() {
   const stat = fs.statSync(outFile);
   console.log(`  ✅ Video created: ${(stat.size / 1024 / 1024).toFixed(1)}MB`);
 
+  // Copy to media directory for YouTube upload
+  const mediaPath = path.join(os.homedir(), '.openclaw/media/final_short_daily.mp4');
+  fs.copyFileSync(outFile, mediaPath);
+  console.log(`  ✅ Copied to ${mediaPath}`);
+
   // Step 5: Push to GitHub
   console.log('📤 Pushing to GitHub...');
   try {
