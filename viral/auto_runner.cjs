@@ -22,6 +22,12 @@ const GMAIL_PASS = 'axfd ckjc dwmn pblt';
 const RAW_BASE = 'https://raw.githubusercontent.com/iyayong/openclaw_palja/main/viral/output';
 const IMG_BASE = 'https://palja.net/images/palja-share-card.png';
 
+// ===== VALIDATION =====
+if (!SUPABASE_KEY) {
+  console.error('❌ SUPABASE_SERVICE_ROLE_KEY not found in environment or .env.local');
+  process.exit(1);
+}
+
 function requireFromEnv(key) {
   const envPaths = [
     path.join(os.homedir(), 'Repo/openclaw_palja/.env.local'),
@@ -40,11 +46,27 @@ function requireFromEnv(key) {
 // ===== HELPERS =====
 function fetchJSON(url) {
   return new Promise((resolve, reject) => {
-    https.get(url, { headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` } }, res => {
+    const req = https.get(url, { headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` } }, res => {
       let data = '';
       res.on('data', c => data += c);
-      res.on('end', () => resolve(JSON.parse(data)));
-    }).on('error', reject);
+      res.on('end', () => {
+        if (res.statusCode >= 400) {
+          try {
+            const errBody = JSON.parse(data);
+            return reject(new Error(`Supabase ${res.statusCode}: ${errBody.message || errBody.code || data.slice(0, 100)}`));
+          } catch (_) {
+            return reject(new Error(`Supabase ${res.statusCode}: ${data.slice(0, 100)}`));
+          }
+        }
+        try {
+          resolve(JSON.parse(data));
+        } catch (e) {
+          reject(new Error(`JSON parse error: ${e.message} (status ${res.statusCode})`));
+        }
+      });
+    });
+    req.setTimeout(15000, () => { req.destroy(); reject(new Error('Request timeout after 15s')); });
+    req.on('error', reject);
   });
 }
 
@@ -148,7 +170,8 @@ async function genTempImage() {
   const stocks = await fetchJSON(
     `${SUPABASE_URL}/rest/v1/krx_daily_market_snapshots?select=stock_name,trade_value,element_tags&order=trade_value.desc&limit=100`
   );
-  
+  if (!Array.isArray(stocks)) throw new Error('krx_daily_market_snapshots: unexpected response (not an array)');
+
   const elements = { '목':{label:'🌿 목(木) 나무',value:0,stocks:[],color:'#4a9'},
     '화':{label:'🔥 화(火) 불',value:0,stocks:[],color:'#ff5032'},
     '토':{label:'🌍 토(土) 흙',value:0,stocks:[],color:'#966e46'},
@@ -317,6 +340,7 @@ const tasks = {
   },
   temp_th: async () => {
     const stocks = await fetchJSON(`${SUPABASE_URL}/rest/v1/krx_daily_market_snapshots?select=element_tags,trade_value&order=trade_value.desc&limit=100`);
+    if (!Array.isArray(stocks)) throw new Error('krx_daily_market_snapshots: unexpected response (not an array)');
     const elem = { '목':0,'화':0,'토':0,'금':0,'수':0 };
     let total = 0;
     for (const s of stocks) { if (s.element_tags?.[0] && elem[s.element_tags[0]] !== undefined) { elem[s.element_tags[0]] += Number(s.trade_value); total += Number(s.trade_value); } }
