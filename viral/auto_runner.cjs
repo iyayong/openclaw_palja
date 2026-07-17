@@ -90,6 +90,17 @@ function getPageToken() {
     .then(r => r.access_token);
 }
 
+async function fetchTodayFortunes() {
+  const today = kstDate();
+  const data = await fetchJSON(`${SUPABASE_URL}/rest/v1/zodiac_fortunes?select=*&fortune_date=eq.${today}`);
+  if (!Array.isArray(data) || data.length === 0) {
+    console.log('⚠️ No fortune data for today, returning empty list');
+    return [];
+  }
+  // Sort by score descending
+  return data.sort((a, b) => b.score - a.score);
+}
+
 function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
 
 function kstDate() {
@@ -365,16 +376,79 @@ const tasks = {
   },
 
   // 4. 카피 #1~10 (Threads)
-  copy_1: () => postThreads(`🐉 용띠 오늘 운세 확인! 👉 https://palja.net`),
-  copy_2: () => postThreads(`🔥 오늘 오행: 화(火) 기운 압도적! 반도체 주목 👉 https://palja.net`),
-  copy_3: () => postThreads(`😎 오늘의 주식 한줄: \"용띠는 사자, 닭띠는 쉬어가자\" 👉 https://palja.net`),
-  copy_4: () => postThreads(`🎴 팔자가 AI로 분석한 오늘의 띠별 주식운세! 👉 https://palja.net`),
-  copy_5: () => postThreads(`🌡️ 시장 온도: 화(火)가 뜨겁다! 내 투자 성향은? 👉 https://palja.net`),
-  copy_6: () => postThreads(`💧 수(水) 기운 10%지만 물류주 선방 중! HMM·한진칼 👉 https://palja.net`),
-  copy_7: () => postThreads(`💰 금(金) 18% 금융주 방어세! 이 기회에? 👉 https://palja.net`),
-  copy_8: () => postThreads(`⚠️ 닭띠·뱀띠 오늘은 특히 조심! 운세 확인 👉 https://palja.net`),
-  copy_9: () => postThreads(`🔮 띠별 재물운 TOP3: 용·호랑이·말! 내 운세는? 👉 https://palja.net`),
-  copy_10: () => postThreads(`📊 폭락 후 반등! 시장 흐름 AI 분석 👉 https://palja.net`),
+  copy_1: async () => {
+    const f = await fetchTodayFortunes();
+    const z = f.find(x => x.zodiac === '용') || f[0];
+    return postThreads(`🐉 ${z.zodiac}띠 오늘 운세 (${z.score}점): ${z.advice.slice(0, 50)} 👉 https://palja.net`);
+  },
+  copy_2: async () => {
+    const s = await fetchJSON(`${SUPABASE_URL}/rest/v1/krx_daily_market_snapshots?select=stock_name,element_tags,trade_value&order=trade_value.desc&limit=50`);
+    let txt = '🔥 오늘 오행: 화(火) 기운 압도적! 반도체 주목 👉 https://palja.net';
+    if (Array.isArray(s)) {
+      const fire = s.filter(x => x.element_tags && x.element_tags.includes('화')).slice(0, 3).map(x => x.stock_name).join('·');
+      if (fire) txt = `🔥 오늘 오행: 화(火) 기운 압도적! ${fire} 주목 👉 https://palja.net`;
+    }
+    return postThreads(txt);
+  },
+  copy_3: async () => {
+    const f = await fetchTodayFortunes();
+    const top = f[0], bot = f[f.length - 1];
+    return postThreads(`😎 오늘의 한줄: "${top.zodiac}띠는 사자, ${bot.zodiac}띠는 쉬어가자" 👉 https://palja.net`);
+  },
+  copy_4: async () => {
+    const f = await fetchTodayFortunes();
+    const top3 = f.slice(0, 3).map(x => `${x.zodiac}띠(${x.score}점)`).join(' ');
+    return postThreads(`🎴 AI로 분석한 오늘의 띠별 주식운세! TOP3: ${top3} 👉 https://palja.net`);
+  },
+  copy_5: async () => {
+    const s = await fetchJSON(`${SUPABASE_URL}/rest/v1/krx_daily_market_snapshots?select=element_tags,trade_value&order=trade_value.desc&limit=100`);
+    let txt = '🌡️ 시장 온도: 화(火)가 뜨겁다! 내 투자 성향은? 👉 https://palja.net';
+    if (Array.isArray(s)) {
+      const elem = { '목':0,'화':0,'토':0,'금':0,'수':0 };
+      let total = 0;
+      for (const x of s) { if (x.element_tags?.[0] && elem[x.element_tags[0]] !== undefined) { elem[x.element_tags[0]] += Number(x.trade_value); total += Number(x.trade_value); } }
+      const top = Object.entries(elem).sort((a,b)=>b[1]-a[1]).filter(([_,v])=>v>0)[0];
+      if (top) txt = `🌡️ 시장 온도: ${top[0]}(${Math.round(top[1]/total*100)}%)가 뜨겁다! 내 투자 성향은? 👉 https://palja.net`;
+    }
+    return postThreads(txt);
+  },
+  copy_6: async () => {
+    const s = await fetchJSON(`${SUPABASE_URL}/rest/v1/krx_daily_market_snapshots?select=stock_name,element_tags,trade_value&order=trade_value.desc&limit=100`);
+    let txt = '💧 수(水) 기운 주목! 물류주 선방 중 👉 https://palja.net';
+    if (Array.isArray(s)) {
+      const water = s.filter(x => x.element_tags && x.element_tags.includes('수')).slice(0, 3).map(x => x.stock_name).join('·');
+      if (water) txt = `💧 수(水) 기운! ${water} 선방 중 👉 https://palja.net`;
+    }
+    return postThreads(txt);
+  },
+  copy_7: async () => {
+    const s = await fetchJSON(`${SUPABASE_URL}/rest/v1/krx_daily_market_snapshots?select=stock_name,element_tags,trade_value&order=trade_value.desc&limit=100`);
+    let txt = '💰 금(金) 기운 방어세! 이 기회에? 👉 https://palja.net';
+    if (Array.isArray(s)) {
+      const metal = s.filter(x => x.element_tags && x.element_tags.includes('금')).slice(0, 3).map(x => x.stock_name).join('·');
+      if (metal) txt = `💰 금(金) 기운! ${metal} 방어세 👉 https://palja.net`;
+    }
+    return postThreads(txt);
+  },
+  copy_8: async () => {
+    const f = await fetchTodayFortunes();
+    const bottom3 = f.slice(-3).map(x => `${x.zodiac}띠(${x.score}점)`).join('·');
+    return postThreads(`⚠️ 오늘 조심할 띠: ${bottom3} 👉 https://palja.net`);
+  },
+  copy_9: async () => {
+    const f = await fetchTodayFortunes();
+    const top3 = f.slice(0, 3).map(x => `${x.zodiac}띠(${x.score}점)`).join('·');
+    return postThreads(`🔮 띠별 재물운 TOP3: ${top3}! 내 운세는? 👉 https://palja.net`);
+  },
+  copy_10: async () => {
+    const b = await fetchJSON(`${SUPABASE_URL}/rest/v1/market_briefs?brief_date=eq.${kstDate()}&limit=1`);
+    let msg = '📊 오늘의 시장 흐름 AI 분석!';
+    if (Array.isArray(b) && b.length > 0) {
+      const line = (b[0].content || '').split('\n')[0]?.slice(0, 40) || '';
+      if (line) msg = `📊 ${line}`;
+    }
+    return postThreads(`${msg} 👉 https://palja.net`);
+  },
 
   // 5. IG 카드뉴스 (v2 — dynamic content)
   cardnews: async () => {
@@ -421,9 +495,51 @@ const tasks = {
   },
 
   // 6. 재물운
-  wealth_ig: async () => postIG(`🐷 ${kstDate()} 띠별 재물운\n\n🥇 용띠 🥈 호랑이띠 🥉 말띠\n⚠️ 닭띠·뱀띠·토끼띠 조심\n\n👉 palja.net\n\n#띠별운세 #재물운 #주식운세 #팔자`, null),
-  wealth_th: async () => postThreads(`🐷 ${kstDate()} 띠별 재물운\n🥇 용띠 🥈 호랑이띠 🥉 말띠\n⚠️ 닭·뱀·토끼 조심\n👉 https://palja.net`),
-  wealth_fb: async () => postFB(`🐷 ${kstDate()} 띠별 재물운\n\n🥇 용띠 — 큰 재물 들어올 기운!\n🥈 호랑이띠 — 새로운 투자 기회!\n🥉 말띠 — 들어온 이익 잘 갈무리\n\n⚠️ 조심할 띠: 닭띠 · 뱀띠 · 토끼띠\n\n👉 AI 사주 × 주식 분석: palja.net`, null),
+  wealth_ig: async () => {
+    const fortunes = await fetchTodayFortunes();
+    let text = `🐷 ${kstDate()} 띠별 재물운\n\n`;
+    if (fortunes.length >= 3) {
+      text += `🥇 ${fortunes[0].zodiac}띠 (${fortunes[0].score}점)\n`;
+      text += `🥈 ${fortunes[1].zodiac}띠 (${fortunes[1].score}점)\n`;
+      text += `🥉 ${fortunes[2].zodiac}띠 (${fortunes[2].score}점)\n`;
+      const bottom = fortunes.slice(-3).map(f => f.zodiac + '띠').join('·');
+      text += `⚠️ ${bottom} 조심`;
+    } else {
+      text += '데이터를 불러올 수 없습니다.';
+    }
+    text += `\n\n👉 palja.net\n\n#띠별운세 #재물운 #주식운세 #팔자`;
+    return postIG(text, null);
+  },
+  wealth_th: async () => {
+    const fortunes = await fetchTodayFortunes();
+    let text = `🐷 ${kstDate()} 띠별 재물운\n`;
+    if (fortunes.length >= 3) {
+      text += `🥇 ${fortunes[0].zodiac}띠 (${fortunes[0].score}점)\n`;
+      text += `🥈 ${fortunes[1].zodiac}띠 (${fortunes[1].score}점)\n`;
+      text += `🥉 ${fortunes[2].zodiac}띠 (${fortunes[2].score}점)\n`;
+      const bottom = fortunes.slice(-3).map(f => f.zodiac + '띠').join('·');
+      text += `⚠️ ${bottom} 조심`;
+    } else {
+      text += '데이터를 불러올 수 없습니다.';
+    }
+    text += `\n👉 https://palja.net`;
+    return postThreads(text);
+  },
+  wealth_fb: async () => {
+    const fortunes = await fetchTodayFortunes();
+    let text = `🐷 ${kstDate()} 띠별 재물운\n\n`;
+    if (fortunes.length >= 3) {
+      text += `🥇 ${fortunes[0].zodiac}띠 (${fortunes[0].score}점) — ${fortunes[0].advice.slice(0, 30)}\n`;
+      text += `🥈 ${fortunes[1].zodiac}띠 (${fortunes[1].score}점) — ${fortunes[1].advice.slice(0, 30)}\n`;
+      text += `🥉 ${fortunes[2].zodiac}띠 (${fortunes[2].score}점) — ${fortunes[2].advice.slice(0, 30)}\n\n`;
+      const bottom = fortunes.slice(-3).map(f => `${f.zodiac}띠(${f.score}점)`).join(' · ');
+      text += `⚠️ 조심할 띠: ${bottom}`;
+    } else {
+      text += '데이터를 불러올 수 없습니다.';
+    }
+    text += `\n\n👉 AI 사주 × 주식 분석: palja.net`;
+    return postFB(text, null);
+  },
 
   // 7. 숏츠 대본 → 영상 생성 → 메일 발송
   email_shorts: async () => {
