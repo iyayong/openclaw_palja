@@ -6,11 +6,14 @@ const os = require('os');
 const OUT = path.join(os.homedir(), 'Repo/openclaw_palja/viral/output/cards_html');
 fs.mkdirSync(OUT, { recursive: true });
 
-const today = '7월 16일';
+const now = new Date();
+const kst = new Date(now.getTime() + 9 * 60 * 60 * 1000);
+const today = `${kst.getMonth() + 1}월 ${kst.getDate()}일`;
+const dateCode = String(kst.getFullYear()).slice(-2) + String(kst.getMonth() + 1).padStart(2, '0') + String(kst.getDate()).padStart(2, '0');
 
 const cards = [
   {
-    name: 'card01_cover_0716',
+    name: `card01_cover_${dateCode}`,
     html: `<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;width:1080px;height:1080px;background:#12121e;font-family:Malgun Gothic,sans-serif;color:white">
       <div style="font-size:100px">🔥</div>
       <div style="font-size:100px;font-weight:bold;margin-top:30px">${today}</div>
@@ -20,11 +23,11 @@ const cards = [
     </div>`
   },
   {
-    name: 'card02_top3_0716',
+    name: `card02_top3_${dateCode}`,
     html: `<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;width:1080px;height:1080px;background:#12121e;font-family:Malgun Gothic,sans-serif;color:white">
       <div style="font-size:48px;color:#ffc832;font-weight:bold">🏆 오늘의 최고 운세 TOP3</div>
       <div style="width:200px;height:3px;background:#ffc832;margin:20px 0 40px"></div>
-      ${[['🥇','용띠','90점','#ffc832'],['🥈','호랑이띠','85점','#ff5032'],['🥉','말띠','80px','#ff9632']].map(([emoji,name,score,clr]) => `
+      ${[['🥇','용띠','90점','#ffc832'],['🥈','호랑이띠','85점','#ff5032'],['🥉','말띠','80점','#ff9632']].map(([emoji,name,score,clr]) => `
         <div style="display:flex;align-items:center;width:800px;height:120px;background:#1e1e32;border-radius:24px;padding:0 40px;margin-bottom:20px">
           <div style="font-size:48px;width:80px">${emoji}</div>
           <div style="font-size:48px;font-weight:bold;flex:1">${name}</div>
@@ -34,7 +37,7 @@ const cards = [
     </div>`
   },
   {
-    name: 'card03_caution_0716',
+    name: `card03_caution_${dateCode}`,
     html: `<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;width:1080px;height:1080px;background:#12121e;font-family:Malgun Gothic,sans-serif;color:white">
       <div style="font-size:48px;color:#ffb450;font-weight:bold">⚠️ 오늘은 이것만 조심하세요</div>
       <div style="width:200px;height:3px;background:#ffb450;margin:20px 0 40px"></div>
@@ -47,7 +50,7 @@ const cards = [
     </div>`
   },
   {
-    name: 'card04_temp_0716',
+    name: `card04_temp_${dateCode}`,
     html: `<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;width:1080px;height:1080px;background:#12121e;font-family:Malgun Gothic,sans-serif;color:white">
       <div style="font-size:46px;color:#ffc832;font-weight:bold">🌡️ ${today} 오행 온도계</div>
       <div style="width:200px;height:3px;background:#ffc832;margin:20px 0 40px"></div>
@@ -62,7 +65,7 @@ const cards = [
     </div>`
   },
   {
-    name: 'card05_cta_0716',
+    name: `card05_cta_${dateCode}`,
     html: `<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;width:1080px;height:1080px;background:#12121e;font-family:Malgun Gothic,sans-serif;color:white">
       <div style="font-size:80px">🎴</div>
       <div style="font-size:72px;font-weight:bold;color:#ffc832;margin-top:30px">PALJA</div>

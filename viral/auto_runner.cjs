@@ -355,14 +355,15 @@ const tasks = {
   // 5. IG 카드뉴스
   cardnews: async () => {
     const raw = require('child_process').execSync;
+    const dateCode = kstDate().replace(/-/g, '').slice(2);
     try {
       raw('cd ~/Repo/openclaw_palja && git pull origin main 2>/dev/null; NODE_PATH=/home/paljastock/.openclaw/tools/node-v22.22.2/lib/node_modules node viral/render_cards_today.cjs 2>&1', { stdio: 'pipe' });
     } catch(e) {}
     try {
-      raw('cd ~/Repo/openclaw_palja && git add -f viral/output/cards_html/*0716.png viral/output/cards_html/card*.png 2>/dev/null && git commit -m "auto: cardnews ' + kstDate() + '" && git push origin main 2>&1', { stdio: 'pipe' });
+      raw(`cd ~/Repo/openclaw_palja && git add -f viral/output/cards_html/card*.png 2>/dev/null && git commit -m "auto: cardnews ${kstDate()}" && git push origin main 2>&1`, { stdio: 'pipe' });
     } catch(e) {}
     
-    const images = ['card01_cover_0716','card02_top3_0716','card03_caution_0716','card04_temp_0716','card05_cta_0716'].map(n => `${RAW_BASE}/cards_html/${n}.png`);
+    const images = ['card01_cover','card02_top3','card03_caution','card04_temp','card05_cta'].map(n => `${RAW_BASE}/cards_html/${n}_${dateCode}.png`);
     const children = [];
     for (const img of images.slice(0,5)) {
       const c = await api('POST', `https://graph.facebook.com/v22.0/${IG_ID}/media`, FB_TOKEN, { image_url: img, is_carousel_item: true });
@@ -375,7 +376,7 @@ const tasks = {
       });
       if (car?.id) { await sleep(2000);
         const pub = await api('POST', `https://graph.facebook.com/v22.0/${IG_ID}/media_publish`, FB_TOKEN, { creation_id: car.id });
-        gitCleanup('viral/output/cards_html/*0716.png viral/output/cards_html/card*.png');
+        gitCleanup(`viral/output/cards_html/*_${dateCode}.png viral/output/cards_html/card*.png`);
         return pub;
       }
     }
