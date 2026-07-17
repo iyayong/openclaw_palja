@@ -1,6 +1,6 @@
 // 🎴 팔자 바이럴 자동화 — 마스터 실행기 (auto_runner.cjs)
 // NODE_PATH=/home/paljastock/.openclaw/tools/node-v22.22.2/lib/node_modules node auto_runner.cjs [task_key]
-// task_key: kospi_ig, kospi_th, kospi_fb, temp_ig, temp_th, temp_fb, email_blog, copy_1~10, cardnews, wealth_ig, wealth_th, wealth_fb, email_shorts, close_th, close_fb
+// task_key: kospi_ig, kospi_th, kospi_fb, temp_ig, temp_th, temp_fb, email_blog, copy_1~10, cardnews, wealth_ig, wealth_th, wealth_fb, email_shorts, yt_shorts, close_th, close_fb
 
 const https = require('https');
 const { chromium } = require('playwright-core');
@@ -73,6 +73,61 @@ function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
 function kstDate() {
   const now = new Date();
   return new Date(now.getTime() + 9*60*60*1000).toISOString().split('T')[0];
+}
+
+async function fetchNaverKospi() {
+  // Fetch KOSPI index data from Naver API (latest trading day)
+  const res = await new Promise((resolve, reject) => {
+    https.get('https://m.stock.naver.com/api/index/KOSPI/price?pageSize=1', { headers: { 'User-Agent': 'Mozilla/5.0' } }, r => {
+      let d = ''; r.on('data', c => d += c); r.on('end', () => resolve(JSON.parse(d)));
+    }).on('error', reject);
+  });
+  if (!res || !res[0]) throw new Error('Naver API returned no data');
+  const d = res[0];
+
+  // Fetch investor data from main page via curl + iconv (EUC-KR -> UTF-8)
+  // HTML pattern: <dd class="dd">개인<br><span class="up">+36,647<span>억</span></span></dd>
+  const inv = { individual: '확인중', foreign: '확인중', institution: '확인중' };
+  try {
+    const { execSync } = require('child_process');
+    const html = execSync(
+      'curl -s "https://finance.naver.com/sise/sise_index.naver?code=KOSPI" | iconv -f euc-kr -t utf-8',
+      { stdio: 'pipe', timeout: 10000, encoding: 'utf-8' }
+    ).toString();
+    const indM = html.match(/개인<br><span class="(up|dn)">([+-][\d,]+)<span>억/);
+    const frgM = html.match(/외국인<br><span class="(up|dn)">([+-][\d,]+)<span>억/);
+    const insM = html.match(/기관<br><span class="(up|dn)">([+-][\d,]+)<span>억/);
+    if (indM) inv.individual = indM[2] + '억';
+    if (frgM) inv.foreign = frgM[2] + '억';
+    if (insM) inv.institution = insM[2] + '억';
+  } catch (_) { /* investor data optional */ }
+
+  // Build brief text like supabase market_briefs content
+  const price = d.closePrice || '';
+  const change = d.compareToPreviousClosePrice || '0';
+  const changePct = d.fluctuationsRatio || '0';
+  const high = d.highPrice || '';
+  const low = d.lowPrice || '';
+  const sign = change.startsWith('-') ? '▼' : '▲';
+
+  const briefContent = [
+    `코스피 ${price} (${sign}${change.replace(/^-/, '')}, ${changePct}%)`,
+    `장중: ${high} ~ ${low}`,
+    `개인 ${inv.individual} / 외국인 ${inv.foreign} / 기관 ${inv.institution}`
+  ].filter(l => !l.includes('undefined')).join('\n');
+
+  return {
+    price,
+    change,
+    changePct,
+    high,
+    low,
+    individual: inv.individual,
+    foreign: inv.foreign,
+    institution: inv.institution,
+    content: briefContent,
+    date: d.localTradedAt || kstDate()
+  };
 }
 
 function kstDateStr() {
@@ -212,16 +267,30 @@ async function sendMail(subject, content) {
 const tasks = {
   // 1. KOSPI 브리핑
   kospi_ig: async () => {
-    const brief = await fetchJSON(`${SUPABASE_URL}/rest/v1/market_briefs?select=*&order=brief_date.desc&limit=1`);
-    const raw = brief[0]?.content || '데이터 로드 중';
+    let briefs = await fetchJSON(`${SUPABASE_URL}/rest/v1/market_briefs?brief_date=eq.${kstDate()}&limit=1`);
+    let raw;
+    if (!briefs || !briefs.length) {
+      console.log('⚠️ KOSPI IG: No supabase data for today, falling back to Naver...');
+      const naver = await fetchNaverKospi();
+      raw = naver.content;
+    } else {
+      raw = briefs[0]?.content || '';
+    }
     const text = `📊 ${kstDate()} KOSPI 브리핑\n\n${raw}\n\n👉 palja.net\n\n#코스피 #시장브리핑 #주식 #팔자 #AI분석`;
     return postIG(text, null);
   },
   kospi_th: async () => {
-    const brief = await fetchJSON(`${SUPABASE_URL}/rest/v1/market_briefs?select=*&order=brief_date.desc&limit=1`);
+    let briefs = await fetchJSON(`${SUPABASE_URL}/rest/v1/market_briefs?brief_date=eq.${kstDate()}&limit=1`);
+    let raw;
+    if (!briefs || !briefs.length) {
+      console.log('⚠️ KOSPI TH: No supabase data for today, falling back to Naver...');
+      const naver = await fetchNaverKospi();
+      raw = naver.content;
+    } else {
+      raw = briefs[0]?.content || '';
+    }
     const header = `📊 ${kstDate()} KOSPI 브리핑\n`;
     const footer = `\n👉 https://palja.net`;
-    const raw = brief[0]?.content || '';
     // Threads 500자 제한 (platform limit)
     const maxLen = 500 - header.length - footer.length;
     const truncated = raw.length > maxLen ? raw.slice(0, raw.lastIndexOf('.', maxLen) + 1) || raw.slice(0, raw.lastIndexOf('\n', maxLen)) || raw.slice(0, Math.max(maxLen - 1, 0)) + '…' : raw;
@@ -229,8 +298,14 @@ const tasks = {
     return postThreads(text);
   },
   kospi_fb: async () => {
-    const brief = await fetchJSON(`${SUPABASE_URL}/rest/v1/market_briefs?select=*&order=brief_date.desc&limit=1`);
-    const text = `📊 ${kstDate()} KOSPI 브리핑\n\n${brief[0]?.content || ''}\n\n👉 AI 사주 × 주식 분석: palja.net`;
+    let briefs = await fetchJSON(`${SUPABASE_URL}/rest/v1/market_briefs?select=*&brief_date=eq.${kstDate()}&limit=1`);
+    if (!briefs || !briefs.length) {
+      console.log('⚠️ No supabase data for today, falling back to Naver...');
+      const naver = await fetchNaverKospi();
+      const text = `📊 ${kstDate()} KOSPI 브리핑\n\n${naver.content}\n\n👉 AI 사주 × 주식 분석: palja.net`;
+      return postFB(text, null);
+    }
+    const text = `📊 ${kstDate()} KOSPI 브리핑\n\n${briefs[0]?.content || ''}\n\n👉 AI 사주 × 주식 분석: palja.net`;
     return postFB(text, null);
   },
 
@@ -348,20 +423,58 @@ const tasks = {
     }
   },
 
-  // 8. 장마감
+  // 8. 숏츠 영상 생성 → 미디어 디렉토리 복사 (YouTube 업로드용)
+  yt_shorts: async () => {
+    try {
+      const { execSync } = require('child_process');
+      const scriptPath = path.join(os.homedir(), 'Repo/openclaw_palja/viral/gen_shorts_video.cjs');
+
+      // Run the short video generator
+      const result = execSync(
+        `NODE_PATH=/tmp/node_modules:$NODE_PATH node ${scriptPath}`,
+        { stdio: 'pipe', timeout: 180000, cwd: path.join(os.homedir(), 'Repo/openclaw_palja') }
+      ).toString();
+
+      const urlMatch = result.match(/(?:DONE|🎬 Short URL): (https?[^\s]+)/);
+      const videoUrl = urlMatch ? urlMatch[1] : '생성 실패';
+
+      console.log('✅ yt_shorts video URL:', videoUrl);
+      return { status: 'video_created', url: videoUrl };
+    } catch (e) {
+      console.error('❌ yt_shorts failed:', e.message);
+      return { status: 'error', error: e.message };
+    }
+  },
+
+  // 9. 장마감
   close_th: async () => {
-    const brief = await fetchJSON(`${SUPABASE_URL}/rest/v1/market_briefs?select=*&order=brief_date.desc&limit=1`);
+    let briefs = await fetchJSON(`${SUPABASE_URL}/rest/v1/market_briefs?brief_date=eq.${kstDate()}&limit=1`);
+    let raw;
+    if (!briefs || !briefs.length) {
+      console.log('⚠️ CLOSE TH: No supabase data for today, falling back to Naver...');
+      const naver = await fetchNaverKospi();
+      raw = naver.content;
+    } else {
+      raw = briefs[0]?.content || '';
+    }
     const header = `🌙 ${kstDate()} 시장 브리핑\n`;
     const footer = `\n👉 https://palja.net`;
-    const raw = brief[0]?.content || '';
     const maxLen = 500 - header.length - footer.length;
     const truncated = raw.length > maxLen ? raw.slice(0, raw.lastIndexOf('.', maxLen) + 1) || raw.slice(0, raw.lastIndexOf('\n', maxLen)) || raw.slice(0, Math.max(maxLen - 1, 0)) + '…' : raw;
     const text = header + truncated + footer;
     return postThreads(text);
   },
   close_fb: async () => {
-    const brief = await fetchJSON(`${SUPABASE_URL}/rest/v1/market_briefs?select=*&order=brief_date.desc&limit=1`);
-    return postFB(`🌙 ${kstDate()} 시장 브리핑\n\n${brief[0]?.content || ''}\n\n👉 AI 사주 × 주식 분석: palja.net`, null);
+    let briefs = await fetchJSON(`${SUPABASE_URL}/rest/v1/market_briefs?brief_date=eq.${kstDate()}&limit=1`);
+    let raw;
+    if (!briefs || !briefs.length) {
+      console.log('⚠️ CLOSE FB: No supabase data for today, falling back to Naver...');
+      const naver = await fetchNaverKospi();
+      raw = naver.content;
+    } else {
+      raw = briefs[0]?.content || '';
+    }
+    return postFB(`🌙 ${kstDate()} 시장 브리핑\n\n${raw}\n\n👉 AI 사주 × 주식 분석: palja.net`, null);
   },
 };
 
