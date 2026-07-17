@@ -199,6 +199,8 @@ cython_debug/
 
 # Generated content
 viral/output/
+viral/render_cards_*.cjs
+!viral/render_cards_today.cjs
 
 # Visual Studio Code
 #   Visual Studio Code specific template is maintained in a separate VisualStudioCode.gitignore 
