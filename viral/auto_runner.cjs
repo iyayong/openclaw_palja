@@ -606,33 +606,20 @@ const tasks = {
 
   // 9. 장마감
   close_th: async () => {
-    let briefs = await fetchJSON(`${SUPABASE_URL}/rest/v1/market_briefs?brief_date=eq.${kstDate()}&limit=1`);
-    let raw;
-    if (!briefs || !briefs.length) {
-      console.log('⚠️ CLOSE TH: No supabase data for today, falling back to Naver...');
-      const naver = await fetchNaverKospi();
-      raw = naver.content;
-    } else {
-      raw = briefs[0]?.content || '';
-    }
-    const header = `🌙 ${kstDate()} 시장 브리핑\n`;
+    console.log('🌙 CLOSE TH: Fetching from Naver Finance...');
+    const naver = await fetchNaverKospi();
+    // Use yesterday() for date since market close is previous day at midnight
+    const header = `🌙 ${yesterday()} 시장 브리핑\n`;
     const footer = `\n👉 https://palja.net`;
     const maxLen = 500 - header.length - footer.length;
-    const truncated = raw.length > maxLen ? raw.slice(0, raw.lastIndexOf('.', maxLen) + 1) || raw.slice(0, raw.lastIndexOf('\n', maxLen)) || raw.slice(0, Math.max(maxLen - 1, 0)) + '…' : raw;
+    const truncated = naver.content.length > maxLen ? naver.content.slice(0, naver.content.lastIndexOf('.', maxLen) + 1) || naver.content.slice(0, Math.max(maxLen - 1, 0)) + '…' : naver.content;
     const text = header + truncated + footer;
     return postThreads(text);
   },
   close_fb: async () => {
-    let briefs = await fetchJSON(`${SUPABASE_URL}/rest/v1/market_briefs?brief_date=eq.${kstDate()}&limit=1`);
-    let raw;
-    if (!briefs || !briefs.length) {
-      console.log('⚠️ CLOSE FB: No supabase data for today, falling back to Naver...');
-      const naver = await fetchNaverKospi();
-      raw = naver.content;
-    } else {
-      raw = briefs[0]?.content || '';
-    }
-    return postFB(`🌙 ${kstDate()} 시장 브리핑\n\n${raw}\n\n👉 AI 사주 × 주식 분석: palja.net`, null);
+    console.log('🌙 CLOSE FB: Fetching from Naver Finance...');
+    const naver = await fetchNaverKospi();
+    return postFB(`🌙 ${yesterday()} 시장 브리핑\n\n${naver.content}\n\n👉 AI 사주 × 주식 분석: palja.net`, null);
   },
 };
 
