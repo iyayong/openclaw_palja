@@ -166,8 +166,12 @@ async function fetchNaverKospi() {
 function kstDateStr() {
   const d = new Date(new Date().getTime() + 9*60*60*1000);
   return `${d.getMonth()+1}/${d.getDate()}`;
-}
 
+function yesterday() {
+  const d = new Date(new Date().getTime() + 9*60*60*1000);
+  d.setDate(d.getDate() - 1);
+  return d.toISOString().split('T')[0];
+}
 // ===== CONTENT GENERATORS =====
 function genBriefText(data) {
   const b = data.brief?.[0]?.content?.slice(0,200) || '';
@@ -179,7 +183,7 @@ function genBriefText(data) {
 async function genTempImage() {
   const today = kstDate().replace(/-/g,'');
   const stocks = await fetchJSON(
-    `${SUPABASE_URL}/rest/v1/krx_daily_market_snapshots?select=stock_name,trade_value,element_tags&order=trade_value.desc&limit=100`
+    `${SUPABASE_URL}/rest/v1/krx_daily_market_snapshots?select=stock_name,trade_value,element_tags&bas_dd=eq.${yesterday()}&order=trade_value.desc&limit=100`
   );
   if (!Array.isArray(stocks)) throw new Error('krx_daily_market_snapshots: unexpected response (not an array)');
 
@@ -350,7 +354,7 @@ const tasks = {
     return r;
   },
   temp_th: async () => {
-    const stocks = await fetchJSON(`${SUPABASE_URL}/rest/v1/krx_daily_market_snapshots?select=element_tags,trade_value&order=trade_value.desc&limit=100`);
+    const stocks = await fetchJSON(`${SUPABASE_URL}/rest/v1/krx_daily_market_snapshots?select=element_tags,trade_value&bas_dd=eq.${yesterday()}&order=trade_value.desc&limit=100`);
     if (!Array.isArray(stocks)) throw new Error('krx_daily_market_snapshots: unexpected response (not an array)');
     const elem = { '목':0,'화':0,'토':0,'금':0,'수':0 };
     let total = 0;
@@ -382,7 +386,7 @@ const tasks = {
     return postThreads(`🐉 ${z.zodiac}띠 오늘 운세 (${z.score}점): ${z.advice.slice(0, 50)} 👉 https://palja.net`);
   },
   copy_2: async () => {
-    const s = await fetchJSON(`${SUPABASE_URL}/rest/v1/krx_daily_market_snapshots?select=stock_name,element_tags,trade_value&order=trade_value.desc&limit=50`);
+    const s = await fetchJSON(`${SUPABASE_URL}/rest/v1/krx_daily_market_snapshots?select=stock_name,element_tags,trade_value&bas_dd=eq.${yesterday()}&order=trade_value.desc&limit=50`);
     let txt = '🔥 오늘 오행: 화(火) 기운 압도적! 반도체 주목 👉 https://palja.net';
     if (Array.isArray(s)) {
       const fire = s.filter(x => x.element_tags && x.element_tags.includes('화')).slice(0, 3).map(x => x.stock_name).join('·');
@@ -401,7 +405,7 @@ const tasks = {
     return postThreads(`🎴 AI로 분석한 오늘의 띠별 주식운세! TOP3: ${top3} 👉 https://palja.net`);
   },
   copy_5: async () => {
-    const s = await fetchJSON(`${SUPABASE_URL}/rest/v1/krx_daily_market_snapshots?select=element_tags,trade_value&order=trade_value.desc&limit=100`);
+    const s = await fetchJSON(`${SUPABASE_URL}/rest/v1/krx_daily_market_snapshots?select=element_tags,trade_value&bas_dd=eq.${yesterday()}&order=trade_value.desc&limit=100`);
     let txt = '🌡️ 시장 온도: 화(火)가 뜨겁다! 내 투자 성향은? 👉 https://palja.net';
     if (Array.isArray(s)) {
       const elem = { '목':0,'화':0,'토':0,'금':0,'수':0 };
@@ -413,7 +417,7 @@ const tasks = {
     return postThreads(txt);
   },
   copy_6: async () => {
-    const s = await fetchJSON(`${SUPABASE_URL}/rest/v1/krx_daily_market_snapshots?select=stock_name,element_tags,trade_value&order=trade_value.desc&limit=100`);
+    const s = await fetchJSON(`${SUPABASE_URL}/rest/v1/krx_daily_market_snapshots?select=stock_name,element_tags,trade_value&bas_dd=eq.${yesterday()}&order=trade_value.desc&limit=100`);
     let txt = '💧 수(水) 기운 주목! 물류주 선방 중 👉 https://palja.net';
     if (Array.isArray(s)) {
       const water = s.filter(x => x.element_tags && x.element_tags.includes('수')).slice(0, 3).map(x => x.stock_name).join('·');
@@ -422,7 +426,7 @@ const tasks = {
     return postThreads(txt);
   },
   copy_7: async () => {
-    const s = await fetchJSON(`${SUPABASE_URL}/rest/v1/krx_daily_market_snapshots?select=stock_name,element_tags,trade_value&order=trade_value.desc&limit=100`);
+    const s = await fetchJSON(`${SUPABASE_URL}/rest/v1/krx_daily_market_snapshots?select=stock_name,element_tags,trade_value&bas_dd=eq.${yesterday()}&order=trade_value.desc&limit=100`);
     let txt = '💰 금(金) 기운 방어세! 이 기회에? 👉 https://palja.net';
     if (Array.isArray(s)) {
       const metal = s.filter(x => x.element_tags && x.element_tags.includes('금')).slice(0, 3).map(x => x.stock_name).join('·');
