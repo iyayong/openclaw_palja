@@ -35,6 +35,11 @@ function kstDate() {
 function kstDateStr() {
   const d = new Date(new Date().getTime() + 9 * 60 * 60 * 1000);
   return `${d.getMonth() + 1}월 ${d.getDate()}일`;
+function yesterday() {
+  const d = new Date(new Date().getTime() + 9*60*60*1000);
+  d.setDate(d.getDate() - 1);
+  return d.toISOString().split('T')[0];
+}
 }
 
 async function genShorts() {
@@ -50,7 +55,7 @@ async function genShorts() {
     const brief = await fetchJSON(`${SUPABASE_URL}/rest/v1/market_briefs?select=content&order=brief_date.desc&limit=1`);
     if (brief[0]?.content) briefContent = brief[0].content.slice(0, 200);
 
-    const stocks = await fetchJSON(`${SUPABASE_URL}/rest/v1/krx_daily_market_snapshots?select=element_tags,trade_value&order=trade_value.desc&limit=100`);
+    const stocks = await fetchJSON(`${SUPABASE_URL}/rest/v1/krx_daily_market_snapshots?select=element_tags,trade_value&bas_dd=eq.${yesterday()}&order=trade_value.desc&limit=100`);
     const elem = { 목: 0, 화: 0, 토: 0, 금: 0, 수: 0 };
     let total = 0;
     for (const s of stocks) {
