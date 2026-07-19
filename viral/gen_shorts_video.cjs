@@ -52,7 +52,11 @@ async function genShorts() {
   let topElement = '화(火)';
   let topPct = '43';
   try {
-    const brief = await fetchJSON(`${SUPABASE_URL}/rest/v1/market_briefs?select=content&order=brief_date.desc&limit=1`);
+    let brief = await fetchJSON(`https://mvnbplbtgfhtckqstdxa.supabase.co/rest/v1/market_briefs?select=content&brief_date=eq.${kstDate()}&limit=1`);
+    if (!brief || !brief.length) {
+      console.log('⚠️ No market brief for today, using latest...');
+      brief = await fetchJSON(`https://mvnbplbtgfhtckqstdxa.supabase.co/rest/v1/market_briefs?select=content&order=brief_date.desc&limit=1`);
+    }
     if (brief[0]?.content) briefContent = brief[0].content.slice(0, 200);
 
     const stocks = await fetchJSON(`${SUPABASE_URL}/rest/v1/krx_daily_market_snapshots?select=element_tags,trade_value&bas_dd=eq.${yesterday()}&order=trade_value.desc&limit=100`);
