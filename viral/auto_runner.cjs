@@ -166,6 +166,7 @@ async function fetchNaverKospi() {
 function kstDateStr() {
   const d = new Date(new Date().getTime() + 9*60*60*1000);
   return `${d.getMonth()+1}/${d.getDate()}`;
+}
 
 function yesterday() {
   const d = new Date(new Date().getTime() + 9*60*60*1000);
