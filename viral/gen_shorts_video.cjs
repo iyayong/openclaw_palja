@@ -40,6 +40,10 @@ function yesterday() {
   d.setDate(d.getDate() - 1);
   return d.toISOString().split('T')[0];
 }
+
+function yesterdayCompact() {
+  return yesterday().replace(/-/g, "");
+}
 }
 
 async function genShorts() {
@@ -59,7 +63,7 @@ async function genShorts() {
     }
     if (brief[0]?.content) briefContent = brief[0].content.slice(0, 200);
 
-    const stocks = await fetchJSON(`${SUPABASE_URL}/rest/v1/krx_daily_market_snapshots?select=element_tags,trade_value&bas_dd=eq.${yesterday()}&order=trade_value.desc&limit=100`);
+    const stocks = await fetchJSON(`${SUPABASE_URL}/rest/v1/krx_daily_market_snapshots?select=element_tags,trade_value&bas_dd=eq.${yesterdayCompact()}&order=trade_value.desc&limit=100`);
     const elem = { 목: 0, 화: 0, 토: 0, 금: 0, 수: 0 };
     let total = 0;
     for (const s of stocks) {
