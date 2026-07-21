@@ -375,12 +375,47 @@ const tasks = {
     return r;
   },
 
-  // 3. 블로그 초안 메일
+  // 3. 블로그 초안 메일 (동적 생성)
   email_blog: async () => {
-    const f1 = fs.readFileSync(path.join(os.homedir(), 'Repo/openclaw_palja/viral/output/03_0800_naver_blog.txt'), 'utf-8');
-    const f2 = fs.readFileSync(path.join(os.homedir(), 'Repo/openclaw_palja/viral/output/03_0800_tistory_blog.txt'), 'utf-8');
-    await sendMail(`📝 [팔자] ${kstDate()} 네이버 블로그 초안`, f1);
-    await sendMail(`📝 [팔자] ${kstDate()} 티스토리 초안`, f2);
+    const today = kstDate();
+    const kst = kstDateStr();
+    const yesterdayCompact = yesterday().replace(/-/g, '');
+    
+    // Fetch live data
+    let fortunes = await fetchJSON(`${SUPABASE_URL}/rest/v1/zodiac_fortunes?select=*&fortune_date=eq.${today}`);
+    if (!Array.isArray(fortunes)) fortunes = [];
+    const ordered = fortunes.sort((a, b) => b.score - a.score);
+    
+    let stocks = await fetchJSON(`${SUPABASE_URL}/rest/v1/krx_daily_market_snapshots?select=stock_name,element_tags,trade_value&bas_dd=eq.${yesterdayCompact}&order=trade_value.desc&limit=100`);
+    if (!Array.isArray(stocks)) stocks = [];
+    
+    const elem = { '목':0, '화':0, '토':0, '금':0, '수':0 };
+    let total = 0;
+    for (const s of stocks) {
+      if (s.element_tags?.[0] && elem[s.element_tags[0]] !== undefined) {
+        elem[s.element_tags[0]] += Number(s.trade_value);
+        total += Number(s.trade_value);
+      }
+    }
+    const sorted = Object.entries(elem).filter(([_,v]) => v > 0).sort((a,b) => b[1]-a[1]);
+    const topPct = total > 0 && sorted.length > 0 ? Math.round(sorted[0][1]/total*100) : 0;
+    
+    // Build content
+    let fortuneLines = '';
+    if (ordered.length >= 3) {
+      fortuneLines += '🥇 ' + ordered[0].zodiac + '띠 (' + ordered[0].score + '점)\n';
+      fortuneLines += '🥈 ' + ordered[1].zodiac + '띠 (' + ordered[1].score + '점)\n';
+      fortuneLines += '🥉 ' + ordered[2].zodiac + '띠 (' + ordered[2].score + '점)\n';
+      const bottom = ordered.slice(-2);
+      fortuneLines += '⚠️ ' + bottom.map(f => f.zodiac + '띠').join('·') + ' 조심\n';
+    } else {
+      fortuneLines += '데이터를 불러올 수 없습니다.\n';
+    }
+    
+    const content = `---TITLE\n${kst} 띠별 주식운세 총정리🔮\n\n---BODY\n${kst}, 팔자 AI가 분석한 오늘의 띠별 주식운세입니다.\n\n🔥 오행 분석: ${sorted.map(s => s[0] + ' ' + (total > 0 ? Math.round(Number(s[1])/total*100) : 0) + '%').join(' | ')}\n\n${fortuneLines}\n👉 https://palja.net\n\n---TAGS\n띠별운세, 주식운세, ${kst}, 팔자, AI분석\n`;
+    
+    await sendMail(`📝 [팔자] ${today} 네이버 블로그 초안`, content);
+    await sendMail(`📝 [팔자] ${today} 티스토리 초안`, content);
     return { status: 'email_sent', count: 2 };
   },
 
