@@ -177,6 +177,16 @@ function yesterday() {
 function yesterdayCompact() {
   return yesterday().replace(/-/g, "");
 }
+
+async function getBasDd() {
+  const c = yesterdayCompact();
+  const r = await fetchJSON(`${SUPABASE_URL}/rest/v1/krx_daily_market_snapshots?select=bas_dd&bas_dd=eq.${c}&limit=1`);
+  if (Array.isArray(r) && r.length > 0) { console.log(`📊 bas_dd: ${c}`); return c; }
+  const l = await fetchJSON(`${SUPABASE_URL}/rest/v1/krx_daily_market_snapshots?select=bas_dd&order=bas_dd.desc&limit=1`);
+  if (Array.isArray(l) && l.length > 0) { console.log(`⚠️ ${c} 없음 → ${l[0].bas_dd} fallback`); return l[0].bas_dd; }
+  console.log(`⚠️ krx_daily_market_snapshots 전체 데이터 없음`);
+  return c;
+}
 // ===== CONTENT GENERATORS =====
 function genBriefText(data) {
   const b = data.brief?.[0]?.content?.slice(0,200) || '';
@@ -187,8 +197,9 @@ function genBriefText(data) {
 
 async function genTempImage() {
   const today = kstDate().replace(/-/g,'');
+  const bd = await getBasDd();
   const stocks = await fetchJSON(
-    `${SUPABASE_URL}/rest/v1/krx_daily_market_snapshots?select=stock_name,trade_value,element_tags&bas_dd=eq.${yesterdayCompact()}&order=trade_value.desc&limit=100`
+    `${SUPABASE_URL}/rest/v1/krx_daily_market_snapshots?select=stock_name,trade_value,element_tags&bas_dd=eq.${bd}&order=trade_value.desc&limit=100`
   );
   if (!Array.isArray(stocks)) throw new Error('krx_daily_market_snapshots: unexpected response (not an array)');
 
@@ -359,7 +370,8 @@ const tasks = {
     return r;
   },
   temp_th: async () => {
-    const stocks = await fetchJSON(`${SUPABASE_URL}/rest/v1/krx_daily_market_snapshots?select=element_tags,trade_value&bas_dd=eq.${yesterdayCompact()}&order=trade_value.desc&limit=100`);
+    const bd = await getBasDd();
+    const stocks = await fetchJSON(`${SUPABASE_URL}/rest/v1/krx_daily_market_snapshots?select=element_tags,trade_value&bas_dd=eq.${bd}&order=trade_value.desc&limit=100`);
     if (!Array.isArray(stocks)) throw new Error('krx_daily_market_snapshots: unexpected response (not an array)');
     const elem = { '목':0,'화':0,'토':0,'금':0,'수':0 };
     let total = 0;
