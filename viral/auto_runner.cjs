@@ -543,7 +543,10 @@ const tasks = {
       });
       if (car?.id) { await sleep(2000);
         const pub = await api('POST', `https://graph.facebook.com/v22.0/${IG_ID}/media_publish`, FB_TOKEN, { creation_id: car.id });
-        gitCleanup(`viral/output/cards_html/*_${dateCode}.png viral/output/cards_html/card*.png`);
+        // Only clean up git images when publish actually succeeded — otherwise retry needs them.
+        if (pub?.id) {
+          gitCleanup(`viral/output/cards_html/*_${dateCode}.png viral/output/cards_html/card*.png`);
+        }
         return pub;
       }
     }
